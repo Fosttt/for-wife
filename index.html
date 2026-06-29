@@ -104,6 +104,30 @@
     to { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
   }
 
+  .extras {
+    margin-top: 1.6rem;
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeUp 1.2s ease forwards 2.8s;
+    z-index: 2;
+  }
+  .extras a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.6rem 1.3rem;
+    border: 2px solid rgba(255,255,255,0.6);
+    border-radius: 50px;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(4px);
+    transition: transform .15s ease, background .15s ease;
+  }
+  .extras a:hover { transform: translateY(-2px); background: rgba(255,255,255,0.28); }
+
   .toast {
     position: fixed;
     bottom: 30px;
@@ -128,6 +152,11 @@
   <h1 id="name">Альбина</h1>
   <p class="sub">Ты — самое лучшее, что случилось в моей жизни 💗</p>
   <button id="btn">Нажми меня ✨</button>
+
+  <nav class="extras">
+    <a href="game.html">🎮 Поймай сердечки</a>
+    <a href="wheel.html">🎡 Колесо комплиментов</a>
+  </nav>
 
   <div class="toast" id="toast"></div>
 

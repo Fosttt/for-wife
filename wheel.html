@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Колесо комплиментов 🎡</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { min-height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+  body {
+    background: linear-gradient(-45deg, #ff6b9d, #c44fe0, #5b7cff, #ff9a8b);
+    background-size: 400% 400%;
+    animation: gradient 14s ease infinite;
+    color: #fff; text-align: center;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 1.2rem; overflow-x: hidden;
+  }
+  @keyframes gradient {
+    0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; }
+  }
+  .back { position: fixed; top: 1rem; left: 1rem; color:#fff; text-decoration:none;
+    background:rgba(255,255,255,.18); padding:.5rem 1rem; border-radius:50px;
+    border:1px solid rgba(255,255,255,.4); font-weight:600; z-index:5; }
+
+  h1 { font-size: clamp(1.6rem, 6vw, 2.6rem); margin-bottom: 1.2rem; text-shadow: 0 3px 16px rgba(0,0,0,.25); }
+
+  .wheel-wrap { position: relative; width: min(80vw, 340px); height: min(80vw, 340px); margin-bottom: 1rem; }
+  .pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    font-size: 2.6rem; z-index: 3; filter: drop-shadow(0 3px 6px rgba(0,0,0,.35));
+  }
+  #wheel {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 10px solid rgba(255,255,255,.85);
+    box-shadow: 0 14px 40px rgba(0,0,0,.3);
+    transition: transform 4.2s cubic-bezier(.17,.67,.16,1);
+  }
+
+  #spinBtn {
+    margin-top: .6rem; padding: 1rem 2.8rem; font-size: 1.25rem; font-weight: 700;
+    color: #c44fe0; background: #fff; border: none; border-radius: 50px; cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); transition: transform .15s;
+  }
+  #spinBtn:active { transform: scale(.96); }
+  #spinBtn:disabled { opacity: .6; cursor: default; }
+
+  #result {
+    margin-top: 1.4rem; min-height: 2.4em; font-size: clamp(1.2rem, 4.5vw, 1.7rem);
+    font-weight: 700; max-width: 420px; text-shadow: 0 2px 14px rgba(0,0,0,.25);
+    transition: opacity .3s; opacity: 0;
+  }
+  #result.show { opacity: 1; animation: pop .5s ease; }
+  @keyframes pop { 0%{transform:scale(.6)} 100%{transform:scale(1)} }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">← назад</a>
+  <h1>Колесо комплиментов 🎡</h1>
+
+  <div class="wheel-wrap">
+    <div class="pointer">🔻</div>
+    <canvas id="wheel" width="500" height="500"></canvas>
+  </div>
+
+  <button id="spinBtn">Крутить 🎯</button>
+  <div id="result"></div>
+
+<script>
+  // Короткие подписи на колесе (чтобы влезали)
+  const labels = ["Красивая","Умная","Любимая","Нежная","Лучшая","Солнышко","Родная","Бесценная"];
+  // Полные комплименты, которые показываются под колесом
+  const full = [
+    "Альбина, ты самая красивая на свете 🌹",
+    "Ты невероятно умная и мудрая 🧠✨",
+    "Ты — моя самая любимая 💖",
+    "Ты такая нежная и добрая 🌸",
+    "Ты лучшая жена на свете 👑",
+    "Ты моё солнышко, с тобой светло ☀️",
+    "Ты самый родной мне человек 🤍",
+    "Ты бесценна, дороже всех сокровищ 💎"
+  ];
+
+  const colors = ["#ff6b9d","#ff9a8b","#c44fe0","#7c5cff","#5b7cff","#4fb8e0","#5be0a8","#ffb84f"];
+
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const N = labels.length;
+  const arc = (2 * Math.PI) / N;
+  const R = 250;
+
+  function draw() {
+    for (let i = 0; i < N; i++) {
+      const a0 = i * arc - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(R, R);
+      ctx.arc(R, R, R, a0, a0 + arc);
+      ctx.closePath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(R, R);
+      ctx.rotate(a0 + arc / 2);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 26px 'Segoe UI', sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(labels[i], R - 22, 9);
+      ctx.restore();
+    }
+    // центр
+    ctx.beginPath();
+    ctx.arc(R, R, 32, 0, 2 * Math.PI);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.font = "26px serif";
+    ctx.textAlign = "center";
+    ctx.fillText("💕", R, R + 9);
+  }
+  draw();
+
+  const spinBtn = document.getElementById('spinBtn');
+  const result = document.getElementById('result');
+  let currentRot = 0;
+  let spinning = false;
+  let lastIdx = -1;
+
+  spinBtn.addEventListener('click', () => {
+    if (spinning) return;
+    spinning = true;
+    result.classList.remove('show');
+
+    // выбираем сектор (не тот же, что прошлый, если можно)
+    let idx;
+    do { idx = Math.floor(seededRandom() * N); } while (N > 1 && idx === lastIdx);
+    lastIdx = idx;
+
+    // угол центра сектора idx (с учётом, что 0 наверху)
+    const sectorCenter = idx * arc + arc / 2;
+    const turns = 5 + Math.floor(seededRandom() * 3); // 5-7 оборотов
+    // нужно, чтобы указатель (вверху) попал в центр сектора
+    const target = turns * 2 * Math.PI - sectorCenter;
+    currentRot = target;
+    canvas.style.transform = `rotate(${currentRot}rad)`;
+
+    setTimeout(() => {
+      result.textContent = full[idx];
+      result.classList.add('show');
+      spinning = false;
+    }, 4300);
+  });
+
+  // простой генератор «случайности» без Math.random зависимости от системного времени не нужен —
+  // используем Math.random, он доступен в браузере пользователя
+  function seededRandom() { return Math.random(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Поймай сердечки 🎮</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+  body {
+    background: linear-gradient(-45deg, #ff6b9d, #c44fe0, #5b7cff, #ff9a8b);
+    background-size: 400% 400%;
+    animation: gradient 14s ease infinite;
+    color: #fff;
+  }
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.2rem; font-size: 1.2rem; font-weight: 700;
+    text-shadow: 0 2px 12px rgba(0,0,0,.25); z-index: 5;
+  }
+  #hud a { color:#fff; text-decoration:none; background:rgba(255,255,255,.18);
+    padding:.4rem .9rem; border-radius:50px; font-size:.95rem; border:1px solid rgba(255,255,255,.4); }
+
+  #board { position: fixed; inset: 0; overflow: hidden; }
+
+  .item { position: absolute; top: -50px; font-size: 2.2rem; will-change: transform; cursor: pointer; }
+
+  #basket {
+    position: fixed; bottom: 24px; width: 80px; height: 70px;
+    font-size: 4rem; text-align: center; line-height: 70px;
+    transform: translateX(-50%); pointer-events: none; z-index: 4;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,.3));
+  }
+
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: rgba(0,0,0,0.25); backdrop-filter: blur(3px); z-index: 10; padding: 1.5rem;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 { font-size: clamp(2rem, 9vw, 4rem); margin-bottom: .4rem; text-shadow: 0 4px 20px rgba(0,0,0,.3); }
+  #overlay p { font-size: 1.15rem; margin-bottom: 1.6rem; max-width: 320px; line-height: 1.5; }
+  #overlay button {
+    padding: 1rem 2.6rem; font-size: 1.2rem; font-weight: 700; color: #c44fe0;
+    background: #fff; border: none; border-radius: 50px; cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); transition: transform .15s;
+  }
+  #overlay button:active { transform: scale(.96); }
+  #msg { margin-top: 1.2rem; font-size: 1.05rem; min-height: 1.4em; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <div>❤️ <span id="score">0</span></div>
+    <div>⏱️ <span id="time">30</span></div>
+    <a href="index.html">← назад</a>
+  </div>
+
+  <div id="board"></div>
+  <div id="basket">🧺</div>
+
+  <div id="overlay">
+    <h1 id="ov-title">Поймай сердечки 💖</h1>
+    <p id="ov-text">Двигай корзинку пальцем (или мышкой) и лови падающие сердечки ❤️.<br>Не пропусти за 30 секунд как можно больше!<br><small>⚠️ бомбочки 💣 не лови — минус очко</small></p>
+    <button id="startBtn">Играть ▶️</button>
+    <div id="msg"></div>
+  </div>
+
+<script>
+  const board = document.getElementById('board');
+  const basket = document.getElementById('basket');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const ovTitle = document.getElementById('ov-title');
+  const ovText = document.getElementById('ov-text');
+  const msg = document.getElementById('msg');
+
+  const praises = [
+    "Альбина, ты профи! 🏆", "Ты лучшая! 💖", "Вот это реакция! ⚡",
+    "Сердечки тебя любят ❤️", "Чемпионка! 🥇", "Невероятно! ✨"
+  ];
+
+  let basketX = window.innerWidth / 2;
+  basket.style.left = basketX + 'px';
+
+  function moveBasket(x) {
+    basketX = Math.max(40, Math.min(window.innerWidth - 40, x));
+    basket.style.left = basketX + 'px';
+  }
+  window.addEventListener('mousemove', e => moveBasket(e.clientX));
+  window.addEventListener('touchmove', e => { moveBasket(e.touches[0].clientX); }, { passive: true });
+
+  let score = 0, timeLeft = 30, playing = false;
+  let spawnTimer, tickTimer, rafId;
+  let items = [];
+
+  const HEARTS = ['❤️','💗','💖','💕','💝','🌸'];
+
+  function spawn() {
+    const isBomb = Math.random() < 0.18;
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.textContent = isBomb ? '💣' : HEARTS[Math.floor(Math.random() * HEARTS.length)];
+    const x = 30 + Math.random() * (window.innerWidth - 60);
+    el.style.left = x + 'px';
+    el.dataset.bomb = isBomb ? '1' : '0';
+    el.dataset.x = x;
+    el.dataset.y = -50;
+    el.dataset.speed = 2.2 + Math.random() * 2.6 + (30 - timeLeft) * 0.05;
+    board.appendChild(el);
+    items.push(el);
+  }
+
+  function loop() {
+    const basketY = window.innerHeight - 24 - 35;
+    for (const el of items) {
+      let y = parseFloat(el.dataset.y) + parseFloat(el.dataset.speed);
+      el.dataset.y = y;
+      el.style.transform = `translateY(${y}px)`;
+      const x = parseFloat(el.dataset.x);
+
+      // поймано корзинкой
+      if (y > basketY - 30 && y < basketY + 40 && Math.abs(x - basketX) < 55) {
+        if (el.dataset.bomb === '1') { score = Math.max(0, score - 1); flash(el, '💥'); }
+        else { score += 1; flash(el, '＋1'); }
+        scoreEl.textContent = score;
+        removeItem(el);
+        continue;
+      }
+      // упало мимо
+      if (y > window.innerHeight + 50) removeItem(el);
+    }
+    if (playing) rafId = requestAnimationFrame(loop);
+  }
+
+  function flash(el, txt) {
+    const f = document.createElement('div');
+    f.className = 'item';
+    f.textContent = txt;
+    f.style.left = el.style.left;
+    f.style.transform = el.style.transform;
+    f.style.fontSize = '1.6rem';
+    f.style.transition = 'transform .5s ease, opacity .5s ease';
+    f.style.pointerEvents = 'none';
+    board.appendChild(f);
+    requestAnimationFrame(() => {
+      f.style.transform = el.style.transform + ' translateY(-40px)';
+      f.style.opacity = '0';
+    });
+    setTimeout(() => f.remove(), 500);
+  }
+
+  function removeItem(el) {
+    el.remove();
+    items = items.filter(i => i !== el);
+  }
+
+  function start() {
+    score = 0; timeLeft = 30; playing = true;
+    items.forEach(i => i.remove()); items = [];
+    scoreEl.textContent = '0'; timeEl.textContent = '30';
+    overlay.classList.add('hidden');
+
+    spawnTimer = setInterval(spawn, 650);
+    tickTimer = setInterval(() => {
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if (timeLeft <= 0) end();
+    }, 1000);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function end() {
+    playing = false;
+    clearInterval(spawnTimer);
+    clearInterval(tickTimer);
+    cancelAnimationFrame(rafId);
+    items.forEach(i => i.remove()); items = [];
+
+    ovTitle.textContent = `Готово! 🎉`;
+    ovText.innerHTML = `Ты поймала <b>${score}</b> ${plural(score)} 💖`;
+    msg.textContent = praises[Math.min(praises.length - 1, Math.floor(score / 5))] || praises[0];
+    startBtn.textContent = 'Ещё раз 🔁';
+    overlay.classList.remove('hidden');
+  }
+
+  function plural(n) {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return 'сердечко';
+    if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return 'сердечка';
+    return 'сердечек';
+  }
+
+  startBtn.addEventListener('click', start);
+  window.addEventListener('resize', () => moveBasket(basketX));
+</script>
+</body>
+</html>
